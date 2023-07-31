@@ -22,7 +22,7 @@ posts = [
 
 @app.route("/")
 def home():
-
+    # Run the pygoogle and display the results by passing tyhem in as a thingy
     return render_template("home.html", posts = posts, title = "Top Stories")
 
 
