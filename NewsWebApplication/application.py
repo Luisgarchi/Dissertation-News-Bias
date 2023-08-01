@@ -1,6 +1,8 @@
 from flask import Flask, render_template
+from apptools import globalNews
 
 app = Flask(__name__)
+
 
 posts = [
     {
@@ -20,12 +22,20 @@ posts = [
     }
 ]
 
+
 @app.route("/")
+@app.route("/home")
 def home():
-    # Run the pygoogle and display the results by passing tyhem in as a thingy
-    return render_template("home.html", posts = posts, title = "Top Stories")
+
+    articles = globalNews()
+    return render_template("home.html", articles = articles, title = "Top Stories")
+
+@app.route("/")
+def geohome():
+    return None
 
 
 
 if __name__ == '__main__':
     app.run(debug = True)
+    

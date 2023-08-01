@@ -47,13 +47,17 @@ location = gn.top_news()
 print(location.keys())
 entries = location['entries']
 
+for i in entries[0].keys():
+    print(i)
+
+"""
 for i, item in enumerate(entries[:15]):
     print(i, ") ", item["link"])
     print(get_original_url(item["link"]))
     url = get_article_url(item["link"])
     print(url)
     print() 
-
+"""
 
 
 

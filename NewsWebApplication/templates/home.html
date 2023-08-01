@@ -5,16 +5,16 @@
 
 {% block content %}
 
-    {% for post in posts %}
+    {% for article in articles %}
 
         <article class="media article content-section">
             <div class="media-body">
             <div class="article-metadata">
-                <a class="publisher mr-2" href="#">{{ post.publisher }}</a>
-                <small class="text-muted">{{ post.date_posted }}</small>
+                <a class="publisher mr-2" href="#">{{ article.publisher }}</a>
+                <small class="text-muted">{{ article.publish_date }}</small>
             </div>
-            <h2><a class="article-title" href="#">{{ post.title }}</a></h2>
-            <p class="article-content">{{ post.maintext }}</p>
+            <h2><a class="article-title" href="#">{{ article.title }}</a></h2>
+            <p class="article-content">{{ article.text }}</p>
             </div>
         </article>
 
