@@ -1,5 +1,3 @@
-<!-- https://getbootstrap.com/docs/4.3/getting-started/introduction/ -->
-
 <!DOCTYPE html>
 
 <html lang = "en">
@@ -35,8 +33,8 @@
                 </ul>
               {% else %}
               <ul class="navbar-nav ms-auto mt-2">
-                <li class="nav-item"><a class="nav-link" href="#">Register</a></li>
-                <li class="nav-item"><a class="nav-link" href="#">Log In</a></li>
+                <li class="nav-item"><a class="nav-link" href="{{ url_for('register') }}">Register</a></li>
+                <li class="nav-item"><a class="nav-link" href="{{ url_for('login') }}">Log In</a></li>
               </ul>
               {% endif %}
             </div>
