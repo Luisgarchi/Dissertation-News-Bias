@@ -65,10 +65,9 @@ def filter_article_attributes(article_obj):
         "url" : str(article_obj.url),
         "publisher": get_publisher_from_url(article_obj.url)
     }
-    
-    print(article["summary"])
 
     return article
+
 
 
 
