@@ -16,6 +16,10 @@ nav .navbar-brand .red
     color: #ea433b;
 }
 
+h1 {
+    padding-top: 40px;
+    padding-bottom: 40px;
+}
 
 main
 {
