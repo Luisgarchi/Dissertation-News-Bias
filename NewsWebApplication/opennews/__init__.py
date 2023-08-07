@@ -3,7 +3,10 @@ from flask import Flask
 from flask_bcrypt import Bcrypt
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager
+from flask_apscheduler import APScheduler
 from sqlalchemy_utils import database_exists
+
+
 
 app = Flask(__name__)
 
@@ -30,8 +33,11 @@ if database_exists(PATH_SQLITE_DB):
 
 
 
+scheduler = APScheduler()
+
+from opennews import jobs
+
+scheduler.init_app(app)
+scheduler.start()
+
 from opennews import routes
-
-
-
-
