@@ -19,14 +19,14 @@ class User(db.Model, UserMixin):
 
 
 class Article(db.Model):
-    id        = db.Column(db.Integer, primary_key = True)
-    url       = db.Column(db.Text, nullable = False)
-    publisher = db.Column(db.String(50), nullable = False)
-    title     = db.Column(db.Text, nullable = False)
-    lead      = db.Column(db.Text, nullable = False)
-    maintext  = db.Column(db.Text, nullable = False)
-    date      = db.Column(db.DateTime, nullable = False, default = datetime.utcnow)
-    event_id  = db.Column(db.Integer, db.ForeignKey('event.id'), nullable = True)
+    id             = db.Column(db.Integer, primary_key = True)
+    url            = db.Column(db.Text, nullable = False)
+    publisher      = db.Column(db.String(50), nullable = False)
+    title          = db.Column(db.Text, nullable = False)
+    #lead      = db.Column(db.Text, nullable = False)
+    maintext       = db.Column(db.Text, nullable = False)
+    published_date = db.Column(db.DateTime, nullable = False, default = datetime.utcnow)
+    event_id       = db.Column(db.Integer, db.ForeignKey('event.id'), nullable = True)
     
     def __repr__(self):
         return f"Article('{self.publisher}', '{self.date}', '{self.title}')"

@@ -1,4 +1,5 @@
-.venv/
+.venv
+.test
 *.pyc
 *.pygoogle
 news-please-repo

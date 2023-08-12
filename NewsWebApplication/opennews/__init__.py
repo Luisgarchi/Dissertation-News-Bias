@@ -26,7 +26,7 @@ login_manager.login_message_category = 'info'
 
 """ CREATE DB IF IT DOES NOT ALREADY EXIST """
 # https://stackoverflow.com/questions/44941757/sqlalchemy-exc-operationalerror-sqlite3-operationalerror-no-such-table
-if database_exists(PATH_SQLITE_DB): 
+if not database_exists(PATH_SQLITE_DB): 
     from .models import User, Article, Event
     with app.app_context():
         db.create_all()

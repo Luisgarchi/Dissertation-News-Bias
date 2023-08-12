@@ -53,6 +53,27 @@ table {
     width: 100%;
 }
 
+.plus {
+    float:right;
+}
+
+.content-section {
+    .article-metadata {
+        .button {
+            display: none
+        }
+    }
+}
+
+.content-section:hover {
+    .article-metadata {
+        .button {
+            display: block;
+        }
+    }
+}
+
+
 table th,
 table td {
     padding: 0.75rem;

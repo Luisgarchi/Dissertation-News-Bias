@@ -3,10 +3,7 @@ from opennews import app, db, bcrypt
 from opennews.forms import RegistrationForm, LoginForm
 from opennews.models import User, Article, Event
 from flask_login import login_user, current_user, logout_user, login_required
-
-from apptools import globalNews
-
-
+import datetime
 
 """ HOME """
 
@@ -14,9 +11,14 @@ from apptools import globalNews
 @app.route("/")
 @app.route("/home")
 def home():
-    articles = globalNews()
-    return render_template("home.html", articles = articles, title = "Top Stories")
 
+    utc_dt_aware = datetime.datetime.now(datetime.timezone.utc)
+    date_last_day = utc_dt_aware - datetime.timedelta(days=1)
+    articles = Article.query.filter(Article.published_date >= date_last_day)
+
+    #form = FilterForm()
+
+    return render_template("home.html", articles = articles, title = "Top Stories")
 
 
 

@@ -1,5 +1,6 @@
 from urllib.parse import urlsplit
 import base64
+import datetime
 
 
 def get_publisher_from_url(url):
@@ -52,3 +53,18 @@ def url_google_to_original(url):
     base64code = base64code.decode('latin-1')
 
     return base64code
+
+def filter_newsplease_attributes(article_obj):
+
+    """The dictionary keys are the same names as the attributes of the articles table in the DB.
+    This is so that the dictionary can be passed as a set of arguments to the SQLAlchemy model."""
+
+    article = {
+        "title": str(article_obj.title),
+        "maintext": str(article_obj.maintext),
+        "published_date": article_obj.date_publish,
+        "url" : str(article_obj.url),
+        "publisher": get_publisher_from_url(article_obj.url)
+    }
+
+    return article
