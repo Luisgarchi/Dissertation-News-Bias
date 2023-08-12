@@ -1,0 +1,19 @@
+name,ortientation,route_url,country
+The New York Times,L,www.nytimes.com,US
+Fox News,RR,www.foxnews.com,US
+The Washington Post,L,www.washingtonpost.com,US
+CNN,L,www.cnn.com,US
+Huffpost,LL,www.huffpost.com ,US
+ABC News,L,www.abcnews.com,US
+Breitbar,RR,www.breitbart.com,US
+NBC,L,www.nbc.com,US
+Al Jazeera,L,www.aljazeera.com,Qatar
+Reuters,C,www.reuters.com,UK
+BBC,C,www.bbc.com/news,UK
+Sky News,C,news.sky.com,UK
+The Telegraph,R,www.telegraph.co.uk,UK
+The Guardian,L,www.theguardian.co.uk,UK
+The Independent,L,www.independent.co.uk,UK
+The Sun,R,www.thesun.co.uk/news/,UK
+The Mirror,L,www.mirror.co.uk/news,UK
+Financial Times,C,www.ft.com,UK
