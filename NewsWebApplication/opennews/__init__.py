@@ -7,6 +7,8 @@ from flask_apscheduler import APScheduler
 from sqlalchemy_utils import database_exists
 
 
+import csv
+
 
 app = Flask(__name__)
 
@@ -25,11 +27,26 @@ login_manager.login_message_category = 'info'
 
 
 """ CREATE DB IF IT DOES NOT ALREADY EXIST """
+
 # https://stackoverflow.com/questions/44941757/sqlalchemy-exc-operationalerror-sqlite3-operationalerror-no-such-table
 if not database_exists(PATH_SQLITE_DB): 
-    from .models import User, Article, Event
+    
+    # 1) Create Schema from models
+    from .models import User, Article, Event, Publisher
     with app.app_context():
         db.create_all()
+
+        # 2) Import publishers data
+        with open("publishers.csv") as file:
+            reader = csv.DictReader(file)
+
+            for publisher_attr in reader:
+                db.session.add(Publisher(**publisher_attr))
+
+            db.session.commit()
+
+
+
 
 
 

@@ -21,12 +21,16 @@ class User(db.Model, UserMixin):
 class Article(db.Model):
     id             = db.Column(db.Integer, primary_key = True)
     url            = db.Column(db.Text, nullable = False)
-    publisher      = db.Column(db.String(50), nullable = False)
+    publisher_id   = db.Column(db.Integer, db.ForeignKey('publisher.id'), nullable = True)
     title          = db.Column(db.Text, nullable = False)
-    #lead      = db.Column(db.Text, nullable = False)
     maintext       = db.Column(db.Text, nullable = False)
     published_date = db.Column(db.DateTime, nullable = False, default = datetime.utcnow)
     event_id       = db.Column(db.Integer, db.ForeignKey('event.id'), nullable = True)
+    
+    #keys           = db.Column 
+
+    #publisher      = db.Column(db.String(50), nullable = False)
+    #lead           = db.Column(db.Text, nullable = False)
     
     def __repr__(self):
         return f"Article('{self.publisher}', '{self.date}', '{self.title}')"
@@ -42,3 +46,14 @@ class Event(db.Model):
     def __repr__(self):
         return f"Event('{self.date}', '{self.about}')"
 
+
+class Publisher(db.Model):
+    id          = db.Column(db.Integer, primary_key = True)
+    name        = db.Column(db.String(50), nullable = False)
+    orientation = db.Column(db.String(2), nullable = False)
+    route_url   = db.Column(db.Text, nullable = False)
+    country     = db.Column(db.String(30), nullable = False)
+    articles    = db.relationship('Article', backref = 'publisher', lazy = True)
+
+    def __repr__(self):
+        return f"Publisher('{self.name}', '{self.about}')"
