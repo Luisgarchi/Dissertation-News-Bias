@@ -1,19 +1,19 @@
 name,orientation,route_url,country
-The New York Times,L,www.nytimes.com,US
-Fox News,RR,www.foxnews.com,US
-The Washington Post,L,www.washingtonpost.com,US
-CNN,L,www.cnn.com,US
-Huffpost,LL,www.huffpost.com ,US
-ABC News,L,www.abcnews.com,US
-Breitbar,RR,www.breitbart.com,US
-NBC,L,www.nbc.com,US
-Al Jazeera,L,www.aljazeera.com,Qatar
-Reuters,C,www.reuters.com,UK
-BBC,C,www.bbc.com/news,UK
-Sky News,C,news.sky.com,UK
-The Telegraph,R,www.telegraph.co.uk,UK
-The Guardian,L,www.theguardian.co.uk,UK
-The Independent,L,www.independent.co.uk,UK
-The Sun,R,www.thesun.co.uk/news/,UK
-The Mirror,L,www.mirror.co.uk/news,UK
-Financial Times,C,www.ft.com,UK
+The New York Times,L,https://www.nytimes.com,US
+Fox News,RR,https://www.foxnews.com,US
+The Washington Post,L,https://www.washingtonpost.com,US
+CNN,L,https://www.cnn.com,US
+Huffpost,LL,https://www.huffpost.com ,US
+ABC News,L,https://www.abcnews.com,US
+Breitbar,RR,https://www.breitbart.com,US
+NBC,L,https://www.nbc.com,US
+Al Jazeera,L,https://www.aljazeera.com,Qatar
+Reuters,C,https://www.reuters.com,UK
+BBC,C,https://www.bbc.com/news,UK
+Sky News,C,https://news.sky.com,UK
+The Telegraph,R,https://www.telegraph.co.uk,UK
+The Guardian,L,https://www.theguardian.co.uk,UK
+The Independent,L,https://www.independent.co.uk,UK
+The Sun,R,https://www.thesun.co.uk/news/,UK
+The Mirror,L,https://www.mirror.co.uk/news,UK
+Financial Times,C,https://www.ft.com,UK

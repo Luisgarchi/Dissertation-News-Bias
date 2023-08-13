@@ -8,7 +8,7 @@ from opennews import app, db
 
 
 
-SCHEDULE_TIME = '3,20,37,55'
+SCHEDULE_TIME = '13'
 
 
 
@@ -32,15 +32,16 @@ def getnews():
                 
                 # Verify sucessful extraction and add to db
                 if article:
-                    tidy_article = filter_newsplease_attributes(article)
+                    tidy_article = filter_newsplease_attributes(article, gn_article.title)
                     
                     # Get the correct publisher id
-                    url_name = tidy_article.pop('publisher')
-                    publisher_id = Publisher.query.filter(Publisher.route_url.contains(url_name)).first().id
+                    publisher_name = tidy_article.pop('publisher')
+                    publisher = Publisher.query.filter_by(name = publisher_name).first()
 
-                    if publisher_id:
-                        tidy_article['publisher_id'] = publisher_id
+                    if publisher:
+                        tidy_article['publisher_id'] = publisher.id
                     else:
+                        print(publisher_name, "not in db")
                         continue
 
                         #DECIDE WHAT I WANT TO DO HERE
@@ -50,6 +51,7 @@ def getnews():
                     # Add to db
                     db.session.add(Article(**tidy_article))
                     db.session.commit()
+                    print(publisher_name, " added")
     
     print("updated")
 

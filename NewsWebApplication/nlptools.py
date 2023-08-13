@@ -3,8 +3,8 @@ import base64
 import datetime
 
 
-def get_publisher_from_url(url):
-    return urlsplit(url).netloc.split(".")[1]
+def get_pubisher_from_gn_title(title):
+    return title.split('-')[-1].strip()
 
 
 def url_google_to_original(url):
@@ -54,7 +54,7 @@ def url_google_to_original(url):
 
     return base64code
 
-def filter_newsplease_attributes(article_obj):
+def filter_newsplease_attributes(article_obj, gn_title):
 
     """The dictionary keys are the same names as the attributes of the articles table in the DB.
     This is so that the dictionary can be passed as a set of arguments to the SQLAlchemy model."""
@@ -64,7 +64,7 @@ def filter_newsplease_attributes(article_obj):
         "maintext": str(article_obj.maintext),
         "published_date": article_obj.date_publish,
         "url" : str(article_obj.url),
-        "publisher": get_publisher_from_url(article_obj.url)
+        "publisher": get_pubisher_from_gn_title(gn_title)
     }
 
     return article

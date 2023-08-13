@@ -14,6 +14,7 @@ def home():
 
     utc_dt_aware = datetime.datetime.now(datetime.timezone.utc)
     date_last_day = utc_dt_aware - datetime.timedelta(days=1)
+    
     articles = Article.query.filter(Article.published_date >= date_last_day)
 
     #form = FilterForm()
