@@ -28,8 +28,6 @@ doc = nlp_coref(text)
 pprint(doc.spans)
 
 
-# items = [x.text for x in doc.ents]
-#pprint(items)
 
 
 
