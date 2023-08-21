@@ -4,9 +4,7 @@ from newsplease import NewsPlease
 from pprint import pprint
 from collections import Counter
 
-nlp = spacy.load("en_core_web_trf")
-
-nlp = spacy.load("en_core_web_trf")
+nlp = spacy.load("en_core_web_lg")
 nlp_coref = spacy.load("en_coreference_web_trf")
 
 # use replace_listeners for the coref components
@@ -30,6 +28,13 @@ doc = nlp(text_1.maintext)
 
 #print([(ent.text, ent.kb_id_, ent._.dbpedia_raw_result['@similarityScore']) for ent in doc.ents])
 
+pprint(doc.spans)
+
+
+"""
+
+
+
 for ent in doc.ents:
     print((ent.text, ent.label_, ent._.kb_qid, ent._.url_wikidata, ent._.nerd_score, ent.start, ent.end))
 
@@ -43,6 +48,9 @@ vector_ents_des = {}
 for ent in doc.ents:
     if ('Giuliani' in ent.text) and (ent._.kb_qid not in candidate_ents) : 
         candidate_ents[ent._.kb_qid] = ent._.description
+
+
+
 
 
 
@@ -80,3 +88,6 @@ candidate_clusters = [item for item in doc.spans.items() if item[0].split('_')[-
 for cluster in candidate_clusters:
     for ent in cluster[1]:
         print(ent.text, ent._.kb_qid, ent.start, ent.end)
+
+        
+"""

@@ -1,5 +1,5 @@
 .venv
-.test
+.testcoref
 *.pyc
 *.pygoogle
 news-please-repo
