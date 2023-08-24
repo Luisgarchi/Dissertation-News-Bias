@@ -3,7 +3,6 @@ from spacy import displacy
 from newsplease import NewsPlease
 from pprint import pprint
 from collections import Counter
-import copy
 import re
 
 # Create pipeline
@@ -266,7 +265,6 @@ class DocResolve:
 
                 most_common_entity = max(coref_candidates, key = coref_candidates.get)
                 cluster_key = 'coref_clusters_' + key
-                cluster_copy = copy.deepcopy(self.doc.spans[cluster_key])
                 
                 other_ents = list(coref_candidates.keys())
                 other_ents.remove(most_common_entity)
