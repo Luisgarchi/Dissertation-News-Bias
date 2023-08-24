@@ -3,6 +3,7 @@ from spacy import displacy
 from newsplease import NewsPlease
 from pprint import pprint
 from collections import Counter
+import copy
 import re
 
 # Create pipeline
@@ -29,19 +30,6 @@ text_1 = NewsPlease.from_url(url_1).maintext
 # Apply NLP
 doc = nlp(text_1)
 
-
-"""
-class BasicEntity:
-    def __init__(self, name, type, count):
-        self.name  = name
-        self.type  = type
-        self.count = count
-
-    def __repr__(self):
-        return f"{self.name}, {self.type}, {self.count}"
-"""
-
-
 class Entity():
     def __init__(self, name, type, count):
         self.name = name
@@ -52,7 +40,7 @@ class Entity():
         self.ent_obj = []
         self.head = None
         self.descriptors = []
-
+        self.coref_clusters = []
 
     def add_knowledge_base_info(self, kb_candidates_info):
         self.kb_candidates = kb_candidates_info
@@ -66,12 +54,32 @@ class Entity():
     def set_head(self, head):
         self.head = head
 
-    def get_descriptors(self):
-        None
+    def add_descriptors(self, descriptor):
+
+        # str -> None
+
+        if descriptor not in self.descriptors:
+            self.descriptors.append(descriptor)
+
+    def add_chunk_descriptors(self, chunk):
+
+        # span -> None
+
+        for token in chunk:
+            if token.text != self.head:
+                self.add_descriptors(token.text)
+
+    def add_coreference_clusters(self, cluster):
+        self.coref_clusters.extend(cluster)
+
+
 
     def __repr__(self):
         return f"{self.name}, {self.type}, {self.count}"
         
+
+
+
 
 
 class DocResolve:
@@ -151,83 +159,191 @@ class DocResolve:
 
     
 
-    def kb_preprocess(self):
+    def kb_preprocess(self, entity):
 
-        for entity in self.entities: 
-            count = Counter([(ent._.kb_qid, ent._.description) for ent in doc.ents if (ent.text in entity.name) or (entity.name in ent.text)]).most_common()
-            unpack_count = [(candidate[0][0], candidate[0][1], candidate[1]) for candidate in count]
-            entity.add_knowledge_base_info(unpack_count)
+        count = Counter([(ent._.kb_qid, ent._.description) for ent in doc.ents if (ent.text in entity.name) or (entity.name in ent.text)]).most_common()
+        unpack_count = [(candidate[0][0], candidate[0][1], candidate[1]) for candidate in count]
+        entity.add_knowledge_base_info(unpack_count)
     
 
-    def get_ent_objs(self):
+    def get_ent_objs(self, entity):
 
-        for entity in self.entities:
-            for ent in self.doc.ents:
-                if (entity.name in ent.text) or (ent.text in entity.name):
-                    entity.add_ent_obj(ent)
+        for ent in self.doc.ents:
+            if (entity.name in ent.text) or (ent.text in entity.name):
+                entity.add_ent_obj(ent)
 
 
-    def get_heads(self):
+    def get_heads(self, entity):
 
-        for entity in self.entities: 
-            """If the name is of length one token then it is the head"""
-            words = entity.name.split(' ')
-            if len(words) == 1:
-                entity.set_head(entity.name)
+        """If the name is of length one token then it is the head"""
+        words = entity.name.split(' ')
+        if len(words) == 1:
+            entity.set_head(entity.name)
 
-            # Otherwise find the most likely head
-            else:
-                for ent in entity.ent_obj:
+        # Otherwise find the most likely head
+        else:
+            for ent in entity.ent_obj:
 
-                    candidate_head = {}
+                candidate_head = {}
 
-                    for word in words:
-                        candidate_head[word] = 0
+                for word in words:
+                    candidate_head[word] = 0
 
-                    for token in self.doc[ent.start : ent.end]:
-                        for key in candidate_head.keys():
-                            if token.head.text == key:
-                                candidate_head[key] += 1
+                for token in self.doc[ent.start : ent.end]:
+                    for key in candidate_head.keys():
+                        if token.head.text == key:
+                            candidate_head[key] += 1
 
-                    head = max(candidate_head, key = candidate_head.get)
-                    entity.set_head(head)
+                head = max(candidate_head, key = candidate_head.get)
+                entity.set_head(head)
 
+
+
+    def get_descriptors(self, entity):
+        """Maybe can take in an argument as well with potential descriptors of the previous get_heads"""
+        """Can also use the coreferences resolved that are not prononuns e.g. modofies"""
+        """Use chunks as well"""
+
+        for ent in entity.ent_obj:
+
+            for token in self.doc[ent.start : ent.end]:
+                if token.head.text == entity.head and token.dep_ == 'compound':
+                    entity.add_descriptors(token.text)
+
+
+        # Check noun phrases that can describe the ent
+        for chunk in self.doc.noun_chunks:
+            if entity.head in chunk.root.text:
+                entity.add_chunk_descriptors(chunk)
+
+
+
+
+    def get_coref_clusters(self):
+        """Helper function"""
+        def heads_in_cluster(entities, cluster):
+
+            # (list, list) -> True
+            heads = [entity.head for entity in entities]
+            for coref in cluster:
+                if coref.text in heads:
+                    return True
+            return False
+        
+
+        entities_obj_map = {entity.name: entity for entity in self.entities}
+        
+        coref_clusters = {
+            key: coref for key, coref in self.doc.spans.items() 
+            if re.match(r"coref_head_clusters_*", key)
+            and heads_in_cluster(self.entities, coref)
+            }
+
+        for coref_span in coref_clusters.items():
+            key, coreferences = coref_span[0], coref_span[1]
+            key = key.split('_')[-1]
+
+            coref_candidates = {}
+            for entity in self.entities:
+                for reference_head in coreferences:
+                    if entity.head in reference_head.text:
+                        if entity.name not in coref_candidates:
+                            coref_candidates[entity.name] = 1
+                        else:
+                            coref_candidates[entity.name] += 1
+                    #Pronouns are ignored since we are only interested in finding mentions of the found entities
+                
+
+            if len(coref_candidates) == 1:
+                # There is only one associated coreference cluster
+                associated_entity = list(coref_candidates.keys())[0]
+                cluster_key = 'coref_clusters_' + key
+                entities_obj_map[associated_entity].add_coreference_clusters(self.doc.spans[cluster_key])
+            else: 
+                # If there is more than one entity in the span we need to find the most common head 
+                # Pronouns are assign to the most common entity
+                # Other head mentions are added to their respective entiity
+
+                most_common_entity = max(coref_candidates, key = coref_candidates.get)
+                cluster_key = 'coref_clusters_' + key
+                cluster_copy = copy.deepcopy(self.doc.spans[cluster_key])
+                
+                other_ents = list(coref_candidates.keys())
+                other_ents.remove(most_common_entity)
+
+                
+                for i, reference_head in enumerate(coreferences):
+                    for entity_name in other_ents:
+                        
+                        #Get the coreference span in question
+                        reference_span = [self.doc.spans[cluster_key][i]]
+                        """Potential Bug"""
+                        # If it is the head or a descriptor (typically compound dependecy) of another entity add the coreference span to that entity
+                        if reference_head.text == entities_obj_map[entity_name].head or reference_head.text in entities_obj_map[entity_name].descriptors:
+                            entities_obj_map[entity_name].add_coreference_clusters(reference_span)
+                        else: 
+                            # Otherwise Save it to the most common
+                            entities_obj_map[most_common_entity].add_coreference_clusters(reference_span)
+        
 
 
     def NED_preprocess(self):
 
-        self.kb_preprocess()
-        self.get_ent_objs()
-        self.get_heads()
-        # entities = self.get_descriptors(entities)
+        for entity in self.entities:
+
+            self.kb_preprocess(entity)
+            self.get_ent_objs(entity)
+            self.get_heads(entity)
+            self.get_descriptors(entity) # Need to prevent adding pronouns might get in the way of coreference resolution
+        
+        
+        coreference_clusters = self.get_coref_clusters()
     
 
 
 
+"""
+Bug ticket - for DocResolve.get_coref_clusters()
+What if there are two or more entities that has the same head, e.g. Coffee County and Fulton County
+
+How can we match the coreference clusters to each one? - Use the coref_cluster spans instead of the coref_head_clusters.
+
+"""
 
 
-        
+"""
+Split get descriptors into two methods one for, compound dependencies of the head and another for chunk descriptors
+"""
+
+"""
+
+Create associated entity method on doc resolve
+
+"""
 
 
 
 
+mydoc = DocResolve(doc, top_x = 5)
 
-
-
-mydoc = DocResolve(doc)
-
-for ent in mydoc.ranked_entities:
-    print(ent)
-print()
-
-
+"""
 for ents in mydoc.entities:
     for ent in ents.ent_obj:
         print(ent.text, ent.start, ent.end, [(token.text, token.pos_, token.dep_, token.head) for token in doc[ent.start : ent.end]])
+"""
+
 
 print()
 for ent in mydoc.entities:
-    print(ent.head)
+    print(ent.head, ": ",ent.descriptors)
+
+
+
+print()
+for ent in mydoc.entities:
+    print(ent.head, ": ",ent.coref_clusters)
+
+
 
 
 
@@ -237,16 +353,6 @@ for ent in mydoc.entities:
     Store compounds
 """
 
-
-"""
-myents = [ent.name for ent in mydoc.merge_entities]
-print(myents)
-
-print()
-for ent in myents:
-    pprint([chunk.text for chunk in doc.noun_chunks if ent in chunk.root.text])
-    print()
-"""
 
 """
 for ent in myents: 
