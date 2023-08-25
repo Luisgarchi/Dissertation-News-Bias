@@ -37,6 +37,7 @@ class Entity():
         self.kb_candidates = None
         self.kb_id = None
         self.ent_obj = []
+        self.ent_spans = []
         self.head = None
         self.descriptors = []
         self.coref_clusters = []
@@ -44,31 +45,26 @@ class Entity():
     def add_knowledge_base_info(self, kb_candidates_info):
         self.kb_candidates = kb_candidates_info
 
-    def add_ent_obj(self, spacy_ent_obj):
+    def add_ent_obj(self, spacy_ent_obj, span):
         self.ent_obj.append(spacy_ent_obj)
-    
-    def add_descriptor(self, descriptor):
-        self.descriptors.append(descriptor)
+        self.ent_spans.append(span)
 
     def set_head(self, head):
         self.head = head
-        
-        # Make a call on the set_descriptors
-        for ent in self.ent_obj:
-            for token in ent:
-                if token.head.text == self.head and token.dep_ == 'compound' and token.text not in self.descriptors:
-                    self.descriptors.append(token.text)
-    
+
+        for ent in self.ent_spansy:
+            self.add_descriptor(ent, self.head)
 
 
-    def add_descriptors(self, descriptor):
+    def add_descriptor(self, span, head):
 
         # str -> None
 
         # x = ['PROPN', 'NOUN', 'ADJ']
+        for token in span:
+            if token.head.text == head and token.dep_ == 'compound' and token.text not in self.descriptors:
+                self.ent_obj.append(token.text)
 
-        if descriptor not in self.descriptors:
-            self.descriptors.append(descriptor)
 
     def add_chunk_descriptors(self, chunk):
 
@@ -179,7 +175,8 @@ class DocResolve:
 
         for ent in self.doc.ents:
             if (entity.name in ent.text) or (ent.text in entity.name):
-                entity.add_ent_obj(ent)
+                span = doc[ent.start:ent.end]
+                entity.add_ent_obj(ent, span)
 
 
     def get_heads(self, entity):
@@ -199,7 +196,6 @@ class DocResolve:
                     candidate_head[word] = 0
 
                 for token in self.doc[ent.start : ent.end]:
-                    print("EXECUTED")
                     for key in candidate_head.keys():
                         if token.head.text == key:
                             candidate_head[key] += 1
@@ -357,14 +353,14 @@ for ent in mydoc.entities:
 
 
 
-"""
+
 print()
 for ent in mydoc.entities:
     print(ent.head, ": \n")
     for item in ent.coref_clusters:
         print([(token.text, token.pos_, token.dep_, token.head.text) for token in item])
 
-
+"""
 
 pprint(doc.spans)
 
