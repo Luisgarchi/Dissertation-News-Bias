@@ -1,18 +1,17 @@
 import spacy
-from spacy import displacy
+from spacytextblob.spacytextblob import SpacyTextBlob
 from newsplease import NewsPlease
 from pprint import pprint
 from collections import Counter
-import numpy as np
 import re
-
-
-import nltk
-nltk.download('punkt')
-nltk.download('stopwords')
 import string
+import nltk
 from nltk.tokenize import word_tokenize
 from nltk.corpus import stopwords
+
+nltk.download('punkt')
+nltk.download('stopwords')
+
 
 # Create pipeline
 nlp = spacy.load("en_core_web_trf")
@@ -29,14 +28,9 @@ nlp.add_pipe("coref", source=nlp_coref)
 nlp.add_pipe("span_resolver", source=nlp_coref)
 
 
+nlp.add_pipe('spacytextblob')
+
 print(nlp.pipe_names)
-
-# Download article
-url_1 = 'https://edition.cnn.com/2023/08/13/politics/coffee-county-georgia-voting-system-breach-trump/index.html'
-text_1 = NewsPlease.from_url(url_1).maintext
-
-# Apply NLP
-doc = nlp(text_1)
 
 class Entity():
     def __init__(self, name, type, count):
@@ -51,10 +45,12 @@ class Entity():
         self.chunk_descriptors = []
         self.adjectives = []
         self.related_entities = []
-        self.coref_clusters = []
+        self.coref_spans = []
+        self.coref_heads = []
 
     def add_knowledge_base_info(self, kb_candidates_info):
         self.kb_candidates = kb_candidates_info
+        print(kb_candidates_info)
 
     def resolve_kb_candidates(self):
 
@@ -133,8 +129,9 @@ class Entity():
         if entity_name not in self.related_entities:
             self.related_entities.append(entity_name)
 
-    def add_coreference_clusters(self, cluster):
-        self.coref_clusters.extend(cluster)
+    def add_coreference(self, span, head):
+        self.coref_spans.append(span)
+        self.coref_heads.append(head)
 
     def __repr__(self):
         return f"{self.name}, {self.type}, {self.count}"
@@ -147,7 +144,6 @@ def unique_maintain_order(seq):
     seen_add = seen.add
     return [x for x in seq if not (x in seen or seen_add(x))]
 
-
 def remove_punctuation(text):
     
     # Removes punctuation (str -> str)
@@ -155,14 +151,11 @@ def remove_punctuation(text):
     remove_punctuation = string.punctuation + "‘’’—“”"
     return text.lower().translate(str.maketrans('', '', remove_punctuation))
 
-
 # We have to remove the punctation from stop words because 
 # punctuation will be remove from the text, 
 # inorder for them to match they must be processed the same (or removed before)
 
 sw = [remove_punctuation(word) for word in stopwords.words('english')]
-
-
 
 def tokenize_number_words(text, number, sw):
     
@@ -205,7 +198,6 @@ class DocResolve:
             entities.append(Entity(ent[0][0], ent[0][1], ent[1]))
 
         return entities
-
 
 
     def merge_entities(self, entities, top_x):
@@ -260,7 +252,6 @@ class DocResolve:
         
         return entities
 
-    
 
     def kb_preprocess(self, entity):
         
@@ -327,7 +318,6 @@ class DocResolve:
                 entity.set_head(head.capitalize())
 
 
-
     def get_ner_descriptors(self, entity):
         """Maybe can take in an argument as well with potential descriptors of the previous get_heads"""
         """Can also use the coreferences resolved that are not prononuns e.g. modofies"""
@@ -358,9 +348,6 @@ class DocResolve:
                 for adjective in adjectives:
                     entity.add_adjective(adjective)
                     
-
-
-
 
     def get_coref_clusters(self):
 
@@ -443,6 +430,7 @@ class DocResolve:
         for i in range(len(coref_span)):
             self.process_coreference(entity, coref_span[i], coref_head[i])
 
+
     def process_coreference(self, entity, reference, head):
         
 
@@ -458,33 +446,8 @@ class DocResolve:
                 if ent_obj.start >= reference.start and ent_obj.end <= reference.end:
                     entity.add_related_entity(other_ent.name)
 
-
-        # Get descriptors
-
         # Add the coreference
-
-
-        
-
-
-
-
-    def get_coreference_descriptors(self, entity, reference_span, reference_head):
-
-        # Check if there is a way to find overlapping span groups.
-        """
-        other_entities = [ent for ent in self.entities if ent.name != entity.name]
-        menthion of other ents 
-        """
-        
-        # Normal Descriptors
-        descriptors = [token.text for token in reference_span
-                       if token.pos_ in ['PROPN', 'NOUN', 'ADJ'] 
-                       and token.head.text == reference_head.text
-                       and token.text not in entity.head]
-
-        for descriptor in descriptors:
-            entity.add_descriptor(descriptor.capitalize())
+        entity.add_coreference(reference, head)
 
 
     def NED_preprocess(self):
@@ -496,10 +459,17 @@ class DocResolve:
             self.get_heads(entity)
             self.get_ner_descriptors(entity) # Need to prevent adding pronouns might get in the way of coreference resolution
         
-        coreference_clusters = self.get_coref_clusters()
+        self.get_coref_clusters()
 
         for entity in self.entities:
             entity.resolve_kb_candidates()
+
+    #def apply_sentiment_analysis(self):
+
+
+
+        
+
     
 
 
@@ -530,12 +500,27 @@ filter the descriptors to add only PROPN, NOUN (if PROPN then check for asociate
 """
 
 
+# Download article
+url_1 = 'https://edition.cnn.com/2023/08/13/politics/coffee-county-georgia-voting-system-breach-trump/index.html'
+text_1 = NewsPlease.from_url(url_1).maintext
+
+# Apply NLP
+doc = nlp(text_1)
+
+mydoc = DocResolve(doc, top_x = 5)
+
+"""
+for index_token, token in enumerate(mydoc.doc):
+    for ent in mydoc.entities:
+        for coref in ent.coref_spans:
+            if coref.end > index_token:
+                break
+            if (index_token >= coref.start) and (index_token <= coref.end) and (coref and token._.blob.polarity):
+                print(f"{ent.name:<25}: {token.text:<15} polarity: {token._.blob.polarity:>6},\t subjectivity: {token._.blob.subjectivity:>6},\t start : {index_token}, \t pos: {token.pos_}, \t dep: {token.dep_}")
 
 
-
-
-mydoc = DocResolve(doc, top_x = 10)
-
+        
+"""
 
 print()
 for ent in mydoc.entities:
@@ -545,20 +530,64 @@ for ent in mydoc.entities:
           "\n adjectives: ", ent.adjectives)
     print()
 
-
-
-
-
-
 # 'nsubj', 'dobj', 'pobj'
-
 
 print()
 for ent in mydoc.entities:
     print(ent.head, ": ", ent.kb_id)
     pprint(ent.kb_candidates)
     print()
+"""
+for i, token in enumerate(doc):
+    if token._.blob.polarity:
+        print(f"{token.text:<15} polarity: {token._.blob.polarity:>6},\t subjectivity: {token._.blob.subjectivity:>6},\t start : {i}, \t pos: {token.pos_}, \t dep: {token.dep_}")
 
+"""
+
+
+"""
+for assessment in mydoc.doc._.blob.sentiment_assessments.assessments:
+    for word in assessment[0]:
+        print(word.text, word.start, word.end)
+"""
+
+
+
+# 'nsubj', 'dobj', 'pobj'
+
+
+
+
+
+"""
+# Download article
+url_2 = 'https://www.foxnews.com/politics/trump-indicted-georgia-probe-alleged-efforts-overturn-2020-election'
+text_2 = NewsPlease.from_url(url_2).maintext
+
+# Apply NLP
+doc_2 = nlp(text_2)
+foxdoc = DocResolve(doc_2, top_x = 5)
+
+
+print()
+for ent in foxdoc.entities:
+    print(ent.head, ":\n descriptors: ", ent.descriptors,
+          "\n related ents: ", ent.related_entities,
+          "\n chunk descriptor: ", ent.chunk_descriptors,
+          "\n adjectives: ", ent.adjectives)
+    print()
+
+
+print()
+for ent in foxdoc.entities:
+    print(ent.head, ": ", ent.kb_id)
+    pprint(ent.kb_candidates)
+    print()
+
+print(foxdoc.doc._.blob.polarity)
+print(foxdoc.doc._.blob.subjectivity)
+print(foxdoc.doc._.blob.sentiment_assessments.assessments)
+"""
 
 
 """
