@@ -348,7 +348,7 @@ for ents in mydoc.entities:
 
 print()
 for ent in mydoc.entities:
-    print(ent.head, ": ",ent.descriptors)
+    print(ent.head, ": ", ent.descriptors)
 
 
 

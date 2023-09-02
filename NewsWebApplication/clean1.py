@@ -27,7 +27,6 @@ nlp_coref.replace_listeners("transformer", "span_resolver", ["model.tok2vec"])
 nlp.add_pipe("coref", source=nlp_coref)
 nlp.add_pipe("span_resolver", source=nlp_coref)
 
-
 nlp.add_pipe('spacytextblob')
 
 print(nlp.pipe_names)
@@ -47,10 +46,16 @@ class Entity():
         self.related_entities = []
         self.coref_spans = []
         self.coref_heads = []
+        self.spans = []
+        self.sentiment_words = []
+        self.polarity_list= []
+        self.subjectivity_list = []
+        self.polarity = 0
+        self.subjectivity = 0
+
 
     def add_knowledge_base_info(self, kb_candidates_info):
         self.kb_candidates = kb_candidates_info
-        print(kb_candidates_info)
 
     def resolve_kb_candidates(self):
 
@@ -103,7 +108,6 @@ class Entity():
             self.kb_id = best_key
 
 
-
     def add_ent_obj(self, spacy_ent_obj):
         self.ent_obj.append(spacy_ent_obj)
     
@@ -132,6 +136,19 @@ class Entity():
     def add_coreference(self, span, head):
         self.coref_spans.append(span)
         self.coref_heads.append(head)
+
+    def add_spans(self, spans):
+        self.spans = spans
+
+    def add_sentiment(self, token, polarity, subjectivity):
+        self.sentiment_words.append(token)
+        self.polarity_list.append(polarity)
+        self.subjectivity_list.append(subjectivity)
+
+    def calculate_sentiment(self):
+
+        self.polarity = sum(self.polarity_list)/len(self.polarity_list) if len(self.polarity_list) != 0 else 0
+        self.subjectivity = sum(self.subjectivity_list)/len(self.subjectivity_list) if len(self.subjectivity_list) != 0 else 0
 
     def __repr__(self):
         return f"{self.name}, {self.type}, {self.count}"
@@ -180,12 +197,13 @@ def tokenize_number_words(text, number, sw):
 
 class DocResolve:
 
-    def __init__(self, doc, top_x = 5):
+    def __init__(self, doc, top_x = 5, avoid_type_condition = True):
         self.doc = doc
         self.ranked_entities = self.ranked_entities(self.doc)
-        self.entities = self.merge_entities(self.ranked_entities, top_x)
+        self.entities = self.merge_entities(self.ranked_entities, top_x, avoid_type_condition)
         
         self.NED_preprocess()
+        self.apply_sentiment_analysis()
 
 
 
@@ -200,16 +218,19 @@ class DocResolve:
         return entities
 
 
-    def merge_entities(self, entities, top_x):
+    def merge_entities(self, entities, top_x, avoid_type_condition):
 
         entities_most_common = entities.copy()
 
         """Establish helper function"""
         def perform_pass_entity_check(ent):
             j = 0
+
             while entities_most_common and j < len(entities_most_common):
                 ent_B = entities_most_common[j]
-                if ent.type == ent_B.type and (ent.name.lower() in ent_B.name.lower() or ent_B.name.lower() in ent.name.lower()):
+                if ((True if avoid_type_condition else ent.type == ent_B.type) and
+                    (ent.name.lower() in ent_B.name.lower() or ent_B.name.lower() in ent.name.lower())):
+
                     candidates.append(ent_B)
                     entities_most_common.pop(j)
                     continue
@@ -269,9 +290,9 @@ class DocResolve:
 
         kb_candidates = {}
 
-        for ent in doc.ents:
+        for ent in self.doc.ents:
             if (ent.text.lower() in entity.name.lower()) or (entity.name.lower() in ent.text.lower()):
-                if ent._.kb_qid:      # Make sure not None
+                if ent._.kb_qid:      
                     if ent._.kb_qid not in kb_candidates:
                         kb_candidates[ent._.kb_qid] = {}
                         kb_candidates[ent._.kb_qid]['count'] = 1
@@ -279,10 +300,7 @@ class DocResolve:
                         kb_candidates[ent._.kb_qid]['instance'] = get_instance(ent._.other_ids)
                     else:
                         kb_candidates[ent._.kb_qid]['count'] += 1
-
         
-        #count = Counter([(ent._.kb_qid, ent._.description) for ent in doc.ents if (ent.text.lower() in entity.name.lower()) or (entity.name.lower() in ent.text.lower())]).most_common()
-        #unpack_count = [(candidate[0][0], candidate[0][1], candidate[1]) for candidate in count]
         entity.add_knowledge_base_info(kb_candidates)
     
 
@@ -381,7 +399,7 @@ class DocResolve:
             key = key.split('_')[-1]
 
             # Find the respective entity for the coreference groups by using a voting system 
-            # if the head of an entity appears in the coreference cluster head
+            # vote is cast if the head of an entity appears in the coreference cluster head
             coref_candidates = {}
             for entity in self.entities:
                 for reference_head in coreferences:
@@ -410,7 +428,6 @@ class DocResolve:
                 other_ents = list(coref_candidates.keys())
                 other_ents.remove(most_common_entity)
 
-                
                 for i, reference_head in enumerate(coreferences):
                     for entity_name in other_ents:
                         
@@ -423,6 +440,17 @@ class DocResolve:
                         else: 
                             # Otherwise Save it to the most common
                             self.process_coreference(entities_obj_map[most_common_entity], reference_span, reference_head)
+    
+
+        # Final step is to merge the coreference spans with the orignial entitys found by the NER model.
+        for entity in self.entities:
+            spans_ner = [doc[ent.start:ent.end] for ent in entity.ent_obj]
+            spans_coref = [span for span in entity.coref_spans]
+            spans = spans_ner + spans_coref
+            spans = spacy.util.filter_spans(spans)
+            entity.add_spans(spans)
+    
+    
     
 
     def process_coreference_span(self, entity, coref_span, coref_head):
@@ -457,18 +485,69 @@ class DocResolve:
             self.kb_preprocess(entity)
             self.get_ent_objs(entity)
             self.get_heads(entity)
-            self.get_ner_descriptors(entity) # Need to prevent adding pronouns might get in the way of coreference resolution
+            self.get_ner_descriptors(entity)
         
         self.get_coref_clusters()
 
         for entity in self.entities:
             entity.resolve_kb_candidates()
-
-    #def apply_sentiment_analysis(self):
-
-
-
         
+
+    def apply_sentiment_analysis(self):
+
+        for token in self.doc: 
+            if token._.blob.polarity:
+                found = False
+                for ent in self.entities:
+                    for span in ent.spans:
+                    # Adjective tokens 
+                        if token.pos_ in ['ADJ', 'ADV', 'NOUN']:
+
+                            # First check if the head is an entity
+                            if ((token.head.i >= span.start and token.head.i <= span.end)
+                                or (span.root.i in [t.i for t in token.head.children if t.i != token.i])):
+                                ent.add_sentiment(token.text, token._.blob.polarity, token._.blob.subjectivity)
+                                found = True
+
+                            # Second navigate the parse tree and find the 
+                            # Disambiguate between more than one entity
+
+                        elif token.pos_ == 'VERB':
+                            if ((token.dep_ == 'ROOT' and span.root.i in [t.text for t in token.children])
+                                or (token.dep_ == 'relcl' and span.root.i in [t.i for t in token.head.head.children])):
+                                ent.add_sentiment(token.text, token._.blob.polarity, token._.blob.subjectivity)
+                                found = True
+
+                        elif (token.i >= span.start and token.i <= span.end):
+                            ent.add_sentiment(token.text, token._.blob.polarity, token._.blob.subjectivity)
+                            found = True
+
+                if not found:
+                    nearest_ent = None
+                    distance = float('inf')
+                    for ent in self.entities:
+                        for span in ent.spans:
+
+                            from_start = abs(token.i - span.start)
+                            from_end = abs(token.i -span.end)
+
+                            closest = from_start if from_start < from_end else from_end
+
+                            if closest < distance:
+                                distance = closest
+                                nearest_ent = ent
+                    
+                    if nearest_ent:
+                        nearest_ent.add_sentiment(token.text, token._.blob.polarity, token._.blob.subjectivity)
+
+        for ent in self.entities:
+            ent.calculate_sentiment()
+
+
+
+
+                    
+ 
 
     
 
@@ -485,9 +564,6 @@ How can we match the coreference clusters to each one? - Use the coref_cluster s
 """
 Split get descriptors into two methods one for, compound dependencies of the head and another for chunk descriptors
 
-Create associated entity method on doc resolve
-
-filter the descriptors to add only PROPN, NOUN (if PROPN then check for asociated entities) and ADJ if token head is the the original head of coref
 
 1. Check for new potential heads to add to descriptors,
 2.
@@ -507,44 +583,47 @@ text_1 = NewsPlease.from_url(url_1).maintext
 # Apply NLP
 doc = nlp(text_1)
 
-mydoc = DocResolve(doc, top_x = 5)
+
+
+mydoc = DocResolve(doc, top_x = 100, avoid_type_condition=False)
+
+
+for ent in mydoc.entities:
+    if ent.count > 1:
+        print(ent.name, ":\n descriptors: ", ent.descriptors,
+            "\n type: ", ent.type,
+            "\n count: ", ent.count,
+            "\n wikidata id: ", ent.kb_id,
+            "\n coreferences: ", ent.spans,
+            "\n sentiment_words: ", ent.sentiment_words,
+            "\n polarity: ", ent.polarity,
+            "\n subjectivity ", ent.subjectivity,
+            "\n related ents: ", ent.related_entities,
+            "\n chunk descriptor: ", ent.chunk_descriptors,
+            "\n adjectives: ", ent.adjectives)
+        print()
+
 
 """
-for index_token, token in enumerate(mydoc.doc):
-    for ent in mydoc.entities:
-        for coref in ent.coref_spans:
-            if coref.end > index_token:
-                break
-            if (index_token >= coref.start) and (index_token <= coref.end) and (coref and token._.blob.polarity):
-                print(f"{ent.name:<25}: {token.text:<15} polarity: {token._.blob.polarity:>6},\t subjectivity: {token._.blob.subjectivity:>6},\t start : {index_token}, \t pos: {token.pos_}, \t dep: {token.dep_}")
 
 
-        
-"""
-
+      
 print()
 for ent in mydoc.entities:
-    print(ent.head, ":\n descriptors: ", ent.descriptors,
-          "\n related ents: ", ent.related_entities,
-          "\n chunk descriptor: ", ent.chunk_descriptors,
-          "\n adjectives: ", ent.adjectives)
-    print()
+    print(ent.name, ": ", ent.polarity, ent.subjectivity)
 
-# 'nsubj', 'dobj', 'pobj'
+
 
 print()
 for ent in mydoc.entities:
     print(ent.head, ": ", ent.kb_id)
     pprint(ent.kb_candidates)
     print()
+
+
+
+
 """
-for i, token in enumerate(doc):
-    if token._.blob.polarity:
-        print(f"{token.text:<15} polarity: {token._.blob.polarity:>6},\t subjectivity: {token._.blob.subjectivity:>6},\t start : {i}, \t pos: {token.pos_}, \t dep: {token.dep_}")
-
-"""
-
-
 """
 for assessment in mydoc.doc._.blob.sentiment_assessments.assessments:
     for word in assessment[0]:
@@ -558,7 +637,7 @@ for assessment in mydoc.doc._.blob.sentiment_assessments.assessments:
 
 
 
-
+# ______________________________ FOX DOC ________________________________
 """
 # Download article
 url_2 = 'https://www.foxnews.com/politics/trump-indicted-georgia-probe-alleged-efforts-overturn-2020-election'
@@ -589,45 +668,3 @@ print(foxdoc.doc._.blob.subjectivity)
 print(foxdoc.doc._.blob.sentiment_assessments.assessments)
 """
 
-
-"""
-for item in ent.coref_clusters:
-    print([(token.text, token.pos_, token.dep_, token.head.text) for token in item])
-"""
-
-
-
-
-
-"""
-    THROW AWAY ents THAT ARE NOT PROPER NOUNS
-    KEEP ONLY nsubj, pobj, dobj
-    Store compounds
-"""
-
-
-"""
-for ent in myents: 
-    pprint([(token.text, token.dep_, token.head.text) for token in doc if ent in token.head.text])
-"""
-
-"""
-
-pprint(doc.spans)
-
-deps = ['nsubj', 'dobj', 'pobj']
-pos_noun = ['NOUN', 'PROPN']
-for ent in myents: 
-    for token in doc: 
-        if (token.text in ent or ent in token.text) and token.dep_ in deps:
-                if token.pos_ in pos_noun:
-                    print(token.text, token.pos_, token.head.text, token.head.pos_)
-
-
-for ent in myents: 
-    for token in doc: 
-        if (token.text in ent or ent in token.text):
-                print(token.text, token.pos_, token.head.text, token.head.pos_)
-
-
-"""
