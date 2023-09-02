@@ -3,14 +3,11 @@ from spacytextblob.spacytextblob import SpacyTextBlob
 from newsplease import NewsPlease
 from pprint import pprint
 from collections import Counter
+from nlptools import unique_maintain_order, remove_punctuation, tokenize_number_words
 import re
-import string
-import nltk
-from nltk.tokenize import word_tokenize
-from nltk.corpus import stopwords
 
-nltk.download('punkt')
-nltk.download('stopwords')
+
+"""__________SPACY PIPELINE__________"""
 
 
 # Create pipeline
@@ -30,6 +27,13 @@ nlp.add_pipe("span_resolver", source=nlp_coref)
 nlp.add_pipe('spacytextblob')
 
 print(nlp.pipe_names)
+
+
+
+
+
+"__________ENTITY CLASS__________"
+
 
 class Entity():
     def __init__(self, name, type, count):
@@ -88,7 +92,7 @@ class Entity():
                 sentences = [x for x in self.kb_candidates[can_key]['desc_doc'].sents]
                 first_sentence = sentences[0].text
 
-                tokenized_words = tokenize_number_words(remove_punctuation(first_sentence), 50, sw)
+                tokenized_words = tokenize_number_words(remove_punctuation(first_sentence), 50)
                 self.kb_candidates[can_key]['tokenized'] = unique_maintain_order(tokenized_words)
 
                 score = 0
@@ -155,44 +159,9 @@ class Entity():
         
 
 
-def unique_maintain_order(seq):
-    # https://stackoverflow.com/questions/480214/how-do-i-remove-duplicates-from-a-list-while-preserving-order
-    seen = set()
-    seen_add = seen.add
-    return [x for x in seq if not (x in seen or seen_add(x))]
-
-def remove_punctuation(text):
-    
-    # Removes punctuation (str -> str)
-    
-    remove_punctuation = string.punctuation + "‘’’—“”"
-    return text.lower().translate(str.maketrans('', '', remove_punctuation))
-
-# We have to remove the punctation from stop words because 
-# punctuation will be remove from the text, 
-# inorder for them to match they must be processed the same (or removed before)
-
-sw = [remove_punctuation(word) for word in stopwords.words('english')]
-
-def tokenize_number_words(text, number, sw):
-    
-    # Tokenizes words, removes stop words and returns the first n number of tokens (str -> list)
-    
-    tokenized = word_tokenize(text)
-    
-    i = 0
-    while i < number and i < len(tokenized):
-        if tokenized[i] in sw: 
-            del tokenized[i]
-        else: 
-            i += 1
-    
-    if number < len(tokenized):
-        del tokenized[number:]
-    
-    return tokenized
 
 
+"""__________CREATE DOCRESOLVER CLASS__________"""
 
 
 class DocResolve:
@@ -556,10 +525,8 @@ class DocResolve:
 """
 Bug ticket - for DocResolve.get_coref_clusters()
 What if there are two or more entities that has the same head, e.g. Coffee County and Fulton County
-
 How can we match the coreference clusters to each one? - Use the coref_cluster spans instead of the coref_head_clusters.
 """
-
 
 """
 Split get descriptors into two methods one for, compound dependencies of the head and another for chunk descriptors
@@ -583,6 +550,16 @@ text_1 = NewsPlease.from_url(url_1).maintext
 # Apply NLP
 doc = nlp(text_1)
 
+url_2 = 'https://www.foxnews.com/politics/trump-indicted-georgia-probe-alleged-efforts-overturn-2020-election'
+
+
+# Download article
+url_1 = 'https://edition.cnn.com/2023/08/13/politics/coffee-county-georgia-voting-system-breach-trump/index.html'
+text_1 = NewsPlease.from_url(url_1).maintext
+
+# Apply NLP
+doc = nlp(text_1)
+
 
 
 mydoc = DocResolve(doc, top_x = 100, avoid_type_condition=False)
@@ -595,76 +572,9 @@ for ent in mydoc.entities:
             "\n count: ", ent.count,
             "\n wikidata id: ", ent.kb_id,
             "\n coreferences: ", ent.spans,
-            "\n sentiment_words: ", ent.sentiment_words,
             "\n polarity: ", ent.polarity,
             "\n subjectivity ", ent.subjectivity,
             "\n related ents: ", ent.related_entities,
             "\n chunk descriptor: ", ent.chunk_descriptors,
             "\n adjectives: ", ent.adjectives)
         print()
-
-
-"""
-
-
-      
-print()
-for ent in mydoc.entities:
-    print(ent.name, ": ", ent.polarity, ent.subjectivity)
-
-
-
-print()
-for ent in mydoc.entities:
-    print(ent.head, ": ", ent.kb_id)
-    pprint(ent.kb_candidates)
-    print()
-
-
-
-
-"""
-"""
-for assessment in mydoc.doc._.blob.sentiment_assessments.assessments:
-    for word in assessment[0]:
-        print(word.text, word.start, word.end)
-"""
-
-
-
-# 'nsubj', 'dobj', 'pobj'
-
-
-
-
-# ______________________________ FOX DOC ________________________________
-"""
-# Download article
-url_2 = 'https://www.foxnews.com/politics/trump-indicted-georgia-probe-alleged-efforts-overturn-2020-election'
-text_2 = NewsPlease.from_url(url_2).maintext
-
-# Apply NLP
-doc_2 = nlp(text_2)
-foxdoc = DocResolve(doc_2, top_x = 5)
-
-
-print()
-for ent in foxdoc.entities:
-    print(ent.head, ":\n descriptors: ", ent.descriptors,
-          "\n related ents: ", ent.related_entities,
-          "\n chunk descriptor: ", ent.chunk_descriptors,
-          "\n adjectives: ", ent.adjectives)
-    print()
-
-
-print()
-for ent in foxdoc.entities:
-    print(ent.head, ": ", ent.kb_id)
-    pprint(ent.kb_candidates)
-    print()
-
-print(foxdoc.doc._.blob.polarity)
-print(foxdoc.doc._.blob.subjectivity)
-print(foxdoc.doc._.blob.sentiment_assessments.assessments)
-"""
-

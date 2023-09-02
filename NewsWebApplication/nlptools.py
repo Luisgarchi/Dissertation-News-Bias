@@ -1,6 +1,13 @@
 from urllib.parse import urlsplit
 import base64
 import datetime
+import string
+import nltk
+from nltk.tokenize import word_tokenize
+from nltk.corpus import stopwords
+
+nltk.download('punkt')
+nltk.download('stopwords')
 
 
 def get_pubisher_from_gn_title(title):
@@ -68,3 +75,44 @@ def filter_newsplease_attributes(article_obj, gn_title):
     }
 
     return article
+
+
+
+def unique_maintain_order(seq):
+    # https://stackoverflow.com/questions/480214/how-do-i-remove-duplicates-from-a-list-while-preserving-order
+    seen = set()
+    seen_add = seen.add
+    return [x for x in seq if not (x in seen or seen_add(x))]
+
+def remove_punctuation(text):
+    
+    # Removes punctuation (str -> str)
+    
+    remove_punctuation = string.punctuation + "‘’’—“”"
+    return text.lower().translate(str.maketrans('', '', remove_punctuation))
+
+# We have to remove the punctation from stop words because 
+# punctuation will be remove from the text, 
+# inorder for them to match they must be processed the same (or removed before)
+
+
+def tokenize_number_words(text, number):
+    
+    # Tokenizes words, removes stop words and returns the first n number of tokens (str -> list)
+    sw = [remove_punctuation(word) for word in stopwords.words('english')]
+    tokenized = word_tokenize(text)
+    
+    i = 0
+    while i < number and i < len(tokenized):
+        if tokenized[i] in sw: 
+            del tokenized[i]
+        else: 
+            i += 1
+    
+    if number < len(tokenized):
+        del tokenized[number:]
+    
+    return tokenized
+
+
+
