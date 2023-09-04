@@ -1,6 +1,7 @@
 from datetime import datetime
 from opennews import db, login_manager
 from flask_login import UserMixin
+from sqlalchemy.ext.hybrid import hybrid_property, hybrid_method
 
 
 
@@ -21,11 +22,14 @@ class User(db.Model, UserMixin):
 
 
 
-""" ARTICLE to TAG table, (many-to-many relationship) """
+""" ARTICLE to ENNTITY table, (many-to-many relationship) """
 
-article_tag = db.Table('article_tag',
+article_entity = db.Table('article_entity',
                     db.Column('article_id', db.Integer, db.ForeignKey('article.id'), primary_key=True),
-                    db.Column('tag_id', db.Integer, db.ForeignKey('tag.id'), primary_key=True))
+                    db.Column('entity_id', db.Integer, db.ForeignKey('entity.id'), primary_key=True),
+                    db.Column('polarity', db.Numeric(precision=3, scale=2), nullable = False),
+                    db.Column('count', db.Integer, nullable = False),
+                    db.Column('top', db.Boolean, default=False, nullable=False))
 
 
 
@@ -33,25 +37,44 @@ article_tag = db.Table('article_tag',
 
 class Article(db.Model):
     id             = db.Column(db.Integer, primary_key = True)
-    url            = db.Column(db.Text, nullable = False)
+    url            = db.Column(db.Text, nullable = False, unique = True)
     publisher_id   = db.Column(db.Integer, db.ForeignKey('publisher.id'), nullable = True)
     title          = db.Column(db.Text, nullable = False)
     maintext       = db.Column(db.Text, nullable = False)
     published_date = db.Column(db.DateTime, nullable = False, default = datetime.utcnow)
     event_id       = db.Column(db.Integer, db.ForeignKey('event.id'), nullable = True)
-    tags           = db.relationship('Tag', secondary = article_tag, lazy='subquery', backref=db.backref('articles', lazy=True))
+    polarity       = db.Column(db.Numeric(precision=3, scale=2), default = 0, nullable = False)
+    subjectivity   = db.Column(db.Numeric(precision=3, scale=2), default = 0, nullable = False)
+    entities       = db.relationship('Entity', secondary = article_entity, lazy='subquery', backref=db.backref('articles', lazy=True))
+    lead           = db.Column(db.Text, nullable = False)
+    
 
-    #lead           = db.Column(db.Text, nullable = False)
+
+    """
+    # https://docs.sqlalchemy.org/en/20/orm/extensions/hybrid.html
+    @hybrid_method
+    def cosine_similarity(self, other): 
+        return compute_cosine_CV(other, split(self.lead), tokenized = False)
+    
+    @hybrid_property
+    def split(self):
+
+    @cosine_similarity.expression
+    def cosine_similarity(cls, other):
+        return compute_cosine_CV(other, cls.lead, tokenized = False)
+    """
+
     
     def __repr__(self):
         return f"Article('{self.publisher}', '{self.date}', '{self.title}')"
 
 
-""" TAG model """
+""" ENTITY model """
 
-class Tag(db.Model):
+class Entity(db.Model):
     id   = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(50), nullable = False)
+    kb_id = db.Column(db.String(50), nullable = False, unique = True)
 
 
 
@@ -60,7 +83,7 @@ class Tag(db.Model):
 class Event(db.Model):
     id       = db.Column(db.Integer, primary_key = True)
     date     = db.Column(db.DateTime, nullable = False, default = datetime.utcnow)
-    about    = db.Column(db.Text, nullable = False)
+    first_url= db.Column(db.Text, nullable = False)
     articles = db.relationship('Article', backref = 'event', lazy = True)
 
     def __repr__(self):

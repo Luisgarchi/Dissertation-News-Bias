@@ -1,14 +1,17 @@
 from opennews import scheduler
 from pygooglenews import GoogleNews
-from nlptools import url_google_to_original, filter_newsplease_attributes
+from nlptools import url_google_to_original, filter_newsplease_attributes, compute_cosine_CV
 import validators
+import numpy as np
 from newsplease import NewsPlease
-from opennews.models import Article, Publisher
+from opennews.models import Article, Publisher, Entity, Event, article_entity
 from opennews import app, db
+from processarticle import DocResolve
+from datetime import datetime
 
 
-
-SCHEDULE_TIME = '13'
+ARTICLE_SIMILARITY_THRESHOLD = 0.3
+SCHEDULE_TIME = '51'
 
 
 
@@ -20,108 +23,93 @@ def getnews():
 
     with app.app_context():
 
+
         for gn_article in gn_news:
             url = url_google_to_original(gn_article["link"])
+            print("Found this url: ", url)
             
             # Check whether article has already been saved
-            in_db = Article.query.filter_by(url = url).first()
-
+            article_id = Article.query.filter_by(url = url).first()
+            
             # Check if valid url
-            if validators.url(url) and not in_db:
+            if validators.url(url) and not article_id:
+                print("New Article found")
                 np_article = NewsPlease.from_url(url)
                 
-                # Verify sucessful extraction and add to db
+                # Verify sucessful extraction
                 if np_article:
                     tidy_article = filter_newsplease_attributes(np_article, gn_article.title)
                     
                     # Get the correct publisher id
                     publisher_name = tidy_article.pop('publisher')
                     publisher = Publisher.query.filter_by(name = publisher_name).first()
-
+                    
+                    # Only add article if it is a publisher in the database
                     if publisher:
-                        tidy_article['publisher_id'] = publisher.id
-                    else:
-                        print(publisher_name, "not in db")
-                        continue
 
-                        #DECIDE WHAT TO DO HERE
-                            #OPTION 1 ADD TO DB
-                            #OPTION 2 JUST SKIP
+                        print("Found: publisher in DB: ", publisher.name)
+
+                        tidy_article['publisher_id'] = publisher.id
+
+                        # Perform nlp on article maintext
+                        article_nlp_obj = DocResolve(tidy_article["maintext"])
+                        tidy_article['polarity'] = article_nlp_obj.get_doc_polarity()
+                        tidy_article['subjectivity'] = article_nlp_obj.get_doc_subjectivity()
+                        tidy_article['lead'] = article_nlp_obj.lead
+
+                        # Find the event that this article is associated with
+                        date_delta = np.timedelta64(1, 'D')
+                        date_1 =  (tidy_article['published_date'] - date_delta).astype(datetime)
+                        date_2 =  (tidy_article['published_date'] + date_delta).astype(datetime)
+
+                        tidy_article['published_date'] = tidy_article['published_date'].astype(datetime)
+
+
+                        similar_articles = Article.query.filter(Article.published_date.between(date_1, date_2))
+                        similar_articles = filter(lambda article: compute_cosine_CV(article.lead, tidy_article['lead'], tokenized = True) >= ARTICLE_SIMILARITY_THRESHOLD, similar_articles)
+
+                        similar_articles = sorted(similar_articles, key=lambda article: compute_cosine_CV(article.lead, tidy_article['lead'], tokenized = True))
                         
 
+                        if similar_articles:
+                            tidy_article['event_id'] = similar_articles[0].event_id
+                            print("Event found for article")
+                        # If there is no previous event create a new one
+                        else:
+                            print("Article does not have Event, adding event")
+                            db.session.add(Event(date = tidy_article['published_date'], first_url = url))
+                            db.session.commit()
+                            tidy_article['event_id'] = Event.query.filter_by(first_url = url).first().id
+                        
+                        
+                        db.session.add(Article(**tidy_article))
+                        db.session.commit()
+                        # ADD HTML
 
-                    article_nlp_obj = nlp_process()
+                        entities = article_nlp_obj.top_entities()               # Retrieve the entities
+                        article_id = Article.query.filter_by(url = url).first().id
 
-                    # Add to db
-                    db.session.add(article)
-                    db.session.commit()
-                    print(publisher_name, " added")
+
+                        # Add Entities to Entity model and article_entity table
+                        for ent in entities:
+
+                            ent_id = Entity.query.filter_by(kb_id = ent['kb_id']).first()
+                            if not ent_id:
+                                print("New Entity found: ", ent["name"])
+                                ent_params = {key: ent[key] for key in ['name', 'kb_id']}
+                                db.session.add(Entity(**ent_params))
+                                db.session.commit()                                     # need to commit to ensure new entity id's are in the DB
+                                ent_id = Entity.query.filter_by(kb_id = ent['kb_id']).first().id
+                            else:
+                                ent_id = ent_id.id
+
+                            # Add to the article_entity database
+                            ent['entity_id']  = ent_id
+                            ent['article_id'] = article_id
+                            ent_art_params = {key: ent[key] for key in ['article_id', 'entity_id', 'polarity', 'count', 'top']}
+
+                            statement = article_entity.insert().values(**ent_art_params) 
+                            db.session.execute(statement)
+                            db.session.commit()
     
     print("updated")
-
-
-
-
-
-import spacy
-from pprint import pprint
-from spacy import displacy
-from collections import Counter
-
-
-class opennews_article:
-
-    def __init__(self, args):
-        self.args = args
-        self.doc  = self.nlp_process()
-        self.tags = self.get_tags()
-
-
-
-    
-    def nlp_process(self):
-        
-        # Initialise NLP pipeline
-
-        nlp = spacy.load("en_core_web_trf")
-        nlp_coref = spacy.load("en_coreference_web_trf")
-
-        # use replace_listeners for the coref components
-        nlp_coref.replace_listeners("transformer", "coref", ["model.tok2vec"])
-        nlp_coref.replace_listeners("transformer", "span_resolver", ["model.tok2vec"])
-
-        # we won't copy over the span cleaner
-        nlp.add_pipe("coref", source=nlp_coref)
-        nlp.add_pipe("span_resolver", source=nlp_coref)
-
-        return nlp(self.args.maintext)
-
-
-    def get_tags(self):
-
-        valid_tags = ['PERSON', 'NORP', 'ORGS', 'GPE', 'EVENT']
-        tags = [(x.text, x.label_) for x in doc.ents if x.label_ in valid_tags]
-
-        # get top 3
-        top_tags = Counter(tags).most_common(3)
-
-        # unpack 
-        return [(name_tag[0], name_tag[1], count) for name_tag, count in top_tags]
-
-
-    def get_coreference_spans(self):
-
-        coref_len = {key : len(val) for key , val in self.doc.spans.items() if re.match(r"coref_clusters_*", key) }
-        coref_keys = Counter(coref_len).most_common(3)
-        coref_index = [x[0] for x in coref_keys]
-        
-        
-
-
-        
-    
-        
-
-
-
-        re.match(r"coref_clusters_*")

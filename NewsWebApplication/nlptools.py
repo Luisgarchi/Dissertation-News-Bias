@@ -3,12 +3,11 @@ import base64
 import datetime
 import string
 import nltk
+from sklearn.metrics.pairwise import cosine_similarity
+from sklearn.feature_extraction.text import CountVectorizer
 from nltk.tokenize import word_tokenize
 from nltk.corpus import stopwords
-
-nltk.download('punkt')
-nltk.download('stopwords')
-
+import numpy as np
 
 def get_pubisher_from_gn_title(title):
     return title.split('-')[-1].strip()
@@ -69,7 +68,7 @@ def filter_newsplease_attributes(article_obj, gn_title):
     article = {
         "title": str(article_obj.title),
         "maintext": str(article_obj.maintext),
-        "published_date": article_obj.date_publish,
+        "published_date": np.datetime64(article_obj.date_publish),
         "url" : str(article_obj.url),
         "publisher": get_pubisher_from_gn_title(gn_title)
     }
@@ -115,4 +114,15 @@ def tokenize_number_words(text, number):
     return tokenized
 
 
+def compute_cosine_CV(article_A, article_B, tokenized = True):
+    
+    # (string, string, vectorizer) - > int
+    
+    cv = CountVectorizer(analyzer=lambda x: x)
+    
+    if tokenized:
+        vector_matrix = cv.fit_transform([article_A, article_B])
+    else:
+        vector_matrix = cv.fit_transform([article_A.split(" "), article_B.split(" ")])
 
+    return cosine_similarity(vector_matrix)[0,1]

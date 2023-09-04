@@ -26,13 +26,13 @@ nlp.add_pipe("span_resolver", source=nlp_coref)
 
 nlp.add_pipe('spacytextblob')
 
-print(nlp.pipe_names)
+#print(nlp.pipe_names)
 
 
 
 
 
-"__________ENTITY CLASS__________"
+"""__________ENTITY CLASS__________"""
 
 
 class Entity():
@@ -150,9 +150,10 @@ class Entity():
         self.subjectivity_list.append(subjectivity)
 
     def calculate_sentiment(self):
-
-        self.polarity = sum(self.polarity_list)/len(self.polarity_list) if len(self.polarity_list) != 0 else 0
-        self.subjectivity = sum(self.subjectivity_list)/len(self.subjectivity_list) if len(self.subjectivity_list) != 0 else 0
+        polarity = sum(self.polarity_list)/len(self.polarity_list) if len(self.polarity_list) != 0 else 0
+        self.polarity = round(polarity, 2)
+        subjectivity = sum(self.subjectivity_list)/len(self.subjectivity_list) if len(self.subjectivity_list) != 0 else 0
+        self.subjectivity = round(subjectivity, 2)
 
     def __repr__(self):
         return f"{self.name}, {self.type}, {self.count}"
@@ -166,18 +167,20 @@ class Entity():
 
 class DocResolve:
 
-    def __init__(self, doc, top_x = 5, avoid_type_condition = True):
-        self.doc = doc
-        self.ranked_entities = self.ranked_entities(self.doc)
-        self.entities = self.merge_entities(self.ranked_entities, top_x, avoid_type_condition)
+    def __init__(self, text):
+        self.doc = nlp(text)
+        self.ranked_entities = self.ranked_entities()
+        self.entities = self.merge_entities(self.ranked_entities)
         
         self.NED_preprocess()
         self.apply_sentiment_analysis()
+        
+        self.lead = " ".join(tokenize_number_words(remove_punctuation(text), 50))
 
 
 
-    def ranked_entities(self, doc):
-        entities = [(ent.text, ent.label_) for ent in doc.ents]    # ent._.kb_qid
+    def ranked_entities(self):
+        entities = [(ent.text, ent.label_) for ent in self.doc.ents]    # ent._.kb_qid
         ent_count = Counter(entities).most_common()
 
         entities = []
@@ -187,7 +190,7 @@ class DocResolve:
         return entities
 
 
-    def merge_entities(self, entities, top_x, avoid_type_condition):
+    def merge_entities(self, entities):
 
         entities_most_common = entities.copy()
 
@@ -197,7 +200,7 @@ class DocResolve:
 
             while entities_most_common and j < len(entities_most_common):
                 ent_B = entities_most_common[j]
-                if ((True if avoid_type_condition else ent.type == ent_B.type) and
+                if ((ent.type == ent_B.type) and
                     (ent.name.lower() in ent_B.name.lower() or ent_B.name.lower() in ent.name.lower())):
 
                     candidates.append(ent_B)
@@ -211,7 +214,7 @@ class DocResolve:
 
         entities = []
         i = 0
-        while entities_most_common and i < top_x:
+        while entities_most_common:
 
             # Get the top entity
             ent_A = entities_most_common[0]
@@ -413,7 +416,7 @@ class DocResolve:
 
         # Final step is to merge the coreference spans with the orignial entitys found by the NER model.
         for entity in self.entities:
-            spans_ner = [doc[ent.start:ent.end] for ent in entity.ent_obj]
+            spans_ner = [self.doc[ent.start:ent.end] for ent in entity.ent_obj]
             spans_coref = [span for span in entity.coref_spans]
             spans = spans_ner + spans_coref
             spans = spacy.util.filter_spans(spans)
@@ -513,7 +516,31 @@ class DocResolve:
             ent.calculate_sentiment()
 
 
+    def top_entities(self):
 
+        # Return a dictionary with the top 3 most mentioned entities.
+        # Also get the top 
+
+        relvant_ents = [ent for ent in self.entities if ent.type in ['PERSON', 'GPE', 'ORG'] and ent.count >= 2]
+
+        top = sorted(relvant_ents, key=lambda entity: entity.count, reverse = True)[:3]
+        top = [{'name':ent.name, 'count':ent.count, 'kb_id':ent.kb_id, 'polarity': ent.polarity, 'top': True} for ent in top]
+
+        top_name = [entity['name'] for entity in top]
+
+        biased = sorted(relvant_ents, key=lambda entity: entity.polarity, reverse = True)
+        biased = [{'name':ent.name, 'count':ent.count, 'kb_id':ent.kb_id, 'polarity': ent.polarity, 'top': False} for ent in biased if ent.name not in top_name][-3:3]
+
+        return top + biased
+
+    def get_doc_polarity(self):
+        return round(self.doc._.blob.polarity, 2)
+
+    def get_doc_subjectivity(self):
+        return round(self.doc._.blob.subjectivity, 2)
+    
+
+        
 
                     
  
@@ -541,7 +568,7 @@ Split get descriptors into two methods one for, compound dependencies of the hea
 - Remove capitals for personal Nouns
 
 """
-
+"""
 
 # Download article
 url_1 = 'https://edition.cnn.com/2023/08/13/politics/coffee-county-georgia-voting-system-breach-trump/index.html'
@@ -562,9 +589,12 @@ doc = nlp(text_1)
 
 
 
-mydoc = DocResolve(doc, top_x = 100, avoid_type_condition=False)
+mydoc = DocResolve(text_1)
+mydoc.top_entities()
 
 
+"""
+"""
 for ent in mydoc.entities:
     if ent.count > 1:
         print(ent.name, ":\n descriptors: ", ent.descriptors,
@@ -578,3 +608,5 @@ for ent in mydoc.entities:
             "\n chunk descriptor: ", ent.chunk_descriptors,
             "\n adjectives: ", ent.adjectives)
         print()
+"""
+
