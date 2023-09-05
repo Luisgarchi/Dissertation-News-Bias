@@ -45,7 +45,7 @@ class Article(db.Model):
     event_id       = db.Column(db.Integer, db.ForeignKey('event.id'), nullable = True)
     polarity       = db.Column(db.Numeric(precision=3, scale=2), default = 0, nullable = False)
     subjectivity   = db.Column(db.Numeric(precision=3, scale=2), default = 0, nullable = False)
-    entities       = db.relationship('Entity', secondary = article_entity, lazy='subquery', backref=db.backref('articles', lazy=True))
+    entities       = db.relationship('Entity', secondary = article_entity, lazy='subquery', backref=db.backref('article', lazy=True))
     lead           = db.Column(db.Text, nullable = False)
     
 
@@ -66,7 +66,7 @@ class Article(db.Model):
 
     
     def __repr__(self):
-        return f"Article('{self.publisher}', '{self.date}', '{self.title}')"
+        return f"Article('{self.publisher}', '{self.published_date}', '{self.title}')"
 
 
 """ ENTITY model """
@@ -75,6 +75,7 @@ class Entity(db.Model):
     id   = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(50), nullable = False)
     kb_id = db.Column(db.String(50), nullable = False, unique = True)
+    articles = db.relationship('Entity', secondary = article_entity, lazy='subquery', backref=db.backref('entity', lazy=True))
 
 
 
@@ -101,4 +102,4 @@ class Publisher(db.Model):
     articles    = db.relationship('Article', backref = 'publisher', lazy = True)
 
     def __repr__(self):
-        return f"Publisher('{self.name}', '{self.about}')"
+        return f"Publisher('{self.name}')"

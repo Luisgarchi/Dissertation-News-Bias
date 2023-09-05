@@ -123,6 +123,15 @@ def compute_cosine_CV(article_A, article_B, tokenized = True):
     if tokenized:
         vector_matrix = cv.fit_transform([article_A, article_B])
     else:
-        vector_matrix = cv.fit_transform([article_A.split(" "), article_B.split(" ")])
+        #Basically just for sql db
+        article_A_title, article_A_lead = article_A[0], article_A[1]
+        article_B_title, article_B_lead = article_B[0], article_B[1]
+
+        text_A = " ".join(article_A)
+        text_B = " ".join(article_B)
+
+        tokens_A = tokenize_number_words(text_A, 35)
+        tokens_B = tokenize_number_words(text_B, 35)
+        vector_matrix = cv.fit_transform([tokens_A, tokens_B])
 
     return cosine_similarity(vector_matrix)[0,1]

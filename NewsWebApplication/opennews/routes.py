@@ -3,6 +3,7 @@ from opennews import app, db, bcrypt
 from opennews.forms import RegistrationForm, LoginForm
 from opennews.models import User, Article, Event
 from flask_login import login_user, current_user, logout_user, login_required
+from sqlalchemy import func
 import datetime
 
 """ HOME """
@@ -15,9 +16,20 @@ def home():
     utc_dt_aware = datetime.datetime.now(datetime.timezone.utc)
     date_last_day = utc_dt_aware - datetime.timedelta(days=1)
     
-    articles = Article.query.filter(Article.published_date >= date_last_day)
+    #articles = Article.query.filter(Article.published_date >= date_last_day)
 
-    #form = FilterForm()
+    
+    current_events = [event_id[0] for event_id in db.session.query(Event.id).filter(Event.date >= date_last_day)]
+
+
+    #articles = Article.query.group_by(Article.event_id).having(func.count(Article.event_id) >= 2).all()
+    articles = db.session.query(Article.event_id, func.count(Article.event_id)).group_by(Article.event_id).filter(func.count(Article.event_id) >= 2).all()
+    #.group_by(Article.column).all()
+    # filter(Article.published_date >= date_last_day)
+    
+    print(articles)
+
+    #db.session.query(Article).filter(Article.published_date >= date_last_day, Article.event_idin_() date_last_day).group_by(Article.event_id).having
 
     return render_template("home.html", articles = articles, title = "Top Stories")
 

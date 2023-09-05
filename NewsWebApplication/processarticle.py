@@ -88,18 +88,19 @@ class Entity():
             key_words = set([word.lower() for word in key_words])
             
             for can_key in self.kb_candidates.keys():
-                self.kb_candidates[can_key]['desc_doc'] = nlp(self.kb_candidates[can_key]['description'])
-                sentences = [x for x in self.kb_candidates[can_key]['desc_doc'].sents]
-                first_sentence = sentences[0].text
+                if self.kb_candidates[can_key]['description']: 
+                    self.kb_candidates[can_key]['desc_doc'] = nlp(self.kb_candidates[can_key]['description'])
+                    sentences = [x for x in self.kb_candidates[can_key]['desc_doc'].sents]
+                    first_sentence = sentences[0].text
 
-                tokenized_words = tokenize_number_words(remove_punctuation(first_sentence), 50)
-                self.kb_candidates[can_key]['tokenized'] = unique_maintain_order(tokenized_words)
+                    tokenized_words = tokenize_number_words(remove_punctuation(first_sentence), 50)
+                    self.kb_candidates[can_key]['tokenized'] = unique_maintain_order(tokenized_words)
 
-                score = 0
-                for token in self.kb_candidates[can_key]['tokenized']:
-                    if token in key_words:
-                        score += 1
-                
+                    score = 0
+                    for token in self.kb_candidates[can_key]['tokenized']:
+                        if token in key_words:
+                            score += 1
+                    
                 self.kb_candidates[can_key]['score'] = score
 
             heighest_score = 0
@@ -524,12 +525,12 @@ class DocResolve:
         relvant_ents = [ent for ent in self.entities if ent.type in ['PERSON', 'GPE', 'ORG'] and ent.count >= 2]
 
         top = sorted(relvant_ents, key=lambda entity: entity.count, reverse = True)[:3]
-        top = [{'name':ent.name, 'count':ent.count, 'kb_id':ent.kb_id, 'polarity': ent.polarity, 'top': True} for ent in top]
+        top = [{'name':ent.name, 'count':ent.count, 'kb_id':ent.kb_id, 'polarity': ent.polarity, 'top': True} for ent in top if ent.kb_id]
 
         top_name = [entity['name'] for entity in top]
 
         biased = sorted(relvant_ents, key=lambda entity: entity.polarity, reverse = True)
-        biased = [{'name':ent.name, 'count':ent.count, 'kb_id':ent.kb_id, 'polarity': ent.polarity, 'top': False} for ent in biased if ent.name not in top_name][-3:3]
+        biased = [{'name':ent.name, 'count':ent.count, 'kb_id':ent.kb_id, 'polarity': ent.polarity, 'top': False} for ent in biased if ent.name not in top_name and ent.kb_id][-3:3]
 
         return top + biased
 
