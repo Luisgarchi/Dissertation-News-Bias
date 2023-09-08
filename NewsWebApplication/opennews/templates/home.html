@@ -5,19 +5,30 @@
 
 {% block content %}
 
-    {% for article in articles %}
-
+    {% for event in articles %}
         <article class="content-section">
-            <div class="article-metadata">
-                <a class="publisher mr-2" href= " {{ article.publisher.route_url }} ">{{ article.publisher.name }}</a>
-                <small class="text-muted">{{ article.published_date }}</small>
-                <button class = "button" style = "border: none; background-color: transparent; float: right;">
-                    <img src = "static/plus.png" width="30" height="30">
-                </button>
+            <div class="accordion accordion-flush" id="accordionExample">
+
+            {% for article in event %}
+
+
+                <div class="accordion-item">
+                    <h2 class="accordion-header" id="heading{{article.id}}">
+                    <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#collapse{{article.id}}" aria-expanded="true" aria-controls="collapse{{article.id}}">
+                        Accordion Item #1
+                    </button>
+                    </h2>
+                    <div id="collapse{{article.id}}" class="accordion-collapse collapse show" aria-labelledby="heading{{article.id}}" data-bs-parent="#accordionExample">
+                    <div class="accordion-body">
+                        <strong>This is the first item's accordion body.</strong> It is shown by default, until the collapse plugin adds the appropriate classes that we use to style each element. These classes control the overall appearance, as well as the showing and hiding via CSS transitions. You can modify any of this with custom CSS or overriding our default variables. It's also worth noting that just about any HTML can go within the <code>.accordion-body</code>, though the transition does limit overflow.
+                    </div>
+                    </div>
+                </div>
+
+            {% endfor %}
+            
             </div>
-            <h2><a class="article-title" href= " {{ article.url }} ">{{ article.title }}</a></h2>
-            <p class="article-content">{{ article.maintext }}</p>
-        </article>
+        </article>    
 
     {% endfor %}
 

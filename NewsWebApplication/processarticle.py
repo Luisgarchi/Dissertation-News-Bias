@@ -5,6 +5,8 @@ from pprint import pprint
 from collections import Counter
 from nlptools import unique_maintain_order, remove_punctuation, tokenize_number_words
 import re
+from spacy import displacy
+from pprint import pprint
 
 
 """__________SPACY PIPELINE__________"""
@@ -544,9 +546,7 @@ class DocResolve:
         
 
                     
- 
 
-    
 
 
 
@@ -597,7 +597,7 @@ mydoc.top_entities()
 """
 """
 for ent in mydoc.entities:
-    if ent.count > 1:
+    if ent.count > 5:
         print(ent.name, ":\n descriptors: ", ent.descriptors,
             "\n type: ", ent.type,
             "\n count: ", ent.count,
@@ -611,3 +611,18 @@ for ent in mydoc.entities:
         print()
 """
 
+
+"""
+newNLP = spacy.blank("en")
+doc = newNLP(text_1)
+
+
+from spacy.tokens import Span
+myspans= [Span(doc, c.start, c.end, "Trump") for c in mydoc.doc.spans['coref_head_clusters_8']]
+
+doc.spans["sc"] = myspans
+
+
+#displacy.serve(doc, style="span")
+
+"""

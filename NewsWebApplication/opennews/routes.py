@@ -18,14 +18,11 @@ def home():
     
     #articles = Article.query.filter(Article.published_date >= date_last_day)
 
-    
-    current_events = [event_id[0] for event_id in db.session.query(Event.id).filter(Event.date >= date_last_day)]
+    event_ids =  [event_id[0] for event_id in db.session.query(Article.event_id, func.count(Article.event_id)).group_by(Article.event_id).having(func.count(Article.event_id) >= 2).all()]
 
-
-    #articles = Article.query.group_by(Article.event_id).having(func.count(Article.event_id) >= 2).all()
-    articles = db.session.query(Article.event_id, func.count(Article.event_id)).group_by(Article.event_id).filter(func.count(Article.event_id) >= 2).all()
-    #.group_by(Article.column).all()
-    # filter(Article.published_date >= date_last_day)
+    articles = []
+    for id in event_ids:
+        articles.append(Article.query.filter_by(event_id = id))
     
     print(articles)
 
