@@ -1,0 +1,35 @@
+{% extends "layout.html" %}
+
+
+{% block sectiontitle %} {{ title }} {% endblock sectiontitle %}
+
+{% block content %}
+
+    {% for event in articles %}
+        <article class="content-section">
+            <div class="accordion accordion-flush" id="accordionExample">
+
+            {% for article in event %}
+
+
+                <div class="accordion-item">
+                    <h2 class="accordion-header" id="heading{{article.id}}">
+                    <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#collapse{{article.id}}" aria-expanded="true" aria-controls="collapse{{article.id}}" href= " {{ article.publisher.route_url }} ">
+                        {{ article.publisher.name }}<small class="text-muted">{{ article.published_date }}</small>
+                    </button>
+                    </h2>
+                    <div id="collapse{{article.id}}" class="accordion-collapse collapse show" aria-labelledby="heading{{article.id}}" data-bs-parent="#accordionExample">
+                    <div class="accordion-body">
+                        {{ article.maintext }}
+                    </div>
+                    </div>
+                </div>
+
+            {% endfor %}
+            
+            </div>
+        </article>    
+
+    {% endfor %}
+
+{% endblock content %}
